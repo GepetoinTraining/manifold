@@ -55,13 +55,6 @@ export default function RootLayout({
           }}
         >
           {children}
-          <Script id="sw-register" strategy="afterInteractive">
-            {`
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js');
-              }
-            `}
-          </Script>
         </body>
       </html>
     </ClerkProvider>
