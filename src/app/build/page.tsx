@@ -34,6 +34,12 @@ export default function BuildPage() {
     const [roles, setRoles] = useState<string[]>([]);
     const [currentRole, setCurrentRole] = useState<string | undefined>();
 
+    // App state
+    const [appId, setAppId] = useState<string | null>(null);
+    const [appName, setAppName] = useState("Untitled App");
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
     // ─── HANDLERS ──────────────────────────────────────────────────────────────
 
     const handleSendMessage = useCallback(async (content: string) => {
@@ -157,6 +163,54 @@ export default function BuildPage() {
         }
     }, [topology]);
 
+    const handleSaveApp = useCallback(async () => {
+        if (!topology || !user) return;
+
+        setSaving(true);
+        setSaved(false);
+
+        try {
+            const body = {
+                id: appId || undefined,
+                name: appName,
+                owner_id: user.id,
+                topology: JSON.stringify(topology),
+                workspace_type: tags.find(t => t.label === "workspace")?.value || "Document",
+                entity_schema: tags.find(t => t.label === "entities")?.value || null,
+                views: JSON.stringify([]),
+                actions: JSON.stringify({}),
+                status: "draft",
+                visibility: "private",
+            };
+
+            const response = await fetch("/api/app", {
+                method: appId ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) throw new Error("Save failed");
+
+            const data = await response.json();
+
+            if (data.id && !appId) {
+                setAppId(data.id);
+            }
+
+            // Extract app name from topology if available
+            if (topology && 'name' in topology && typeof topology.name === 'string') {
+                setAppName(topology.name);
+            }
+
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (error) {
+            console.error("Save error:", error);
+        } finally {
+            setSaving(false);
+        }
+    }, [topology, user, appId, appName, tags]);
+
     // ─── AUTH CHECK ────────────────────────────────────────────────────────────
 
     if (!isLoaded) {
@@ -191,13 +245,52 @@ export default function BuildPage() {
         <div style={containerStyles}>
             {/* Header */}
             <header style={headerStyles}>
-                <Link href="/" style={{ textDecoration: "none" }}>
-                    <span style={{ fontSize: "18px", fontWeight: 500, color: "#c9a227" }}>
-                        ⊞ Manifold
+                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <Link href="/" style={{ textDecoration: "none" }}>
+                        <span style={{ fontSize: "18px", fontWeight: 500, color: "#c9a227" }}>
+                            ⊞ Manifold
+                        </span>
+                    </Link>
+                    <input
+                        type="text"
+                        value={appName}
+                        onChange={(e) => setAppName(e.target.value)}
+                        placeholder="App Name"
+                        style={{
+                            background: "rgba(200,190,170,0.05)",
+                            border: "1px solid rgba(200,190,170,0.1)",
+                            borderRadius: "6px",
+                            padding: "6px 12px",
+                            color: "#e8e0d0",
+                            fontSize: "14px",
+                            width: "180px",
+                            fontFamily: "inherit",
+                        }}
+                    />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <span style={{ fontSize: "12px", color: "#8a8070" }}>
+                        {user.primaryEmailAddress?.emailAddress}
                     </span>
-                </Link>
-                <div style={{ fontSize: "12px", color: "#8a8070" }}>
-                    Building as {user.primaryEmailAddress?.emailAddress}
+                    <button
+                        onClick={handleSaveApp}
+                        disabled={!topology || saving}
+                        style={{
+                            padding: "8px 20px",
+                            background: saved ? "#22c55e" : saving ? "#666" : "#c9a227",
+                            color: saved ? "#fff" : "#0f0e0c",
+                            border: "none",
+                            borderRadius: "6px",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            cursor: topology && !saving ? "pointer" : "not-allowed",
+                            opacity: topology ? 1 : 0.5,
+                            fontFamily: "inherit",
+                            transition: "all 0.2s",
+                        }}
+                    >
+                        {saved ? "✓ Saved" : saving ? "Saving..." : "Save App"}
+                    </button>
                 </div>
             </header>
 

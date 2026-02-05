@@ -2,12 +2,23 @@
 -- MANIFOLD DATABASE SCHEMA (Turso/libSQL)
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- App definitions (created by interview)
+-- App definitions (created by interview) — v1.12 with two-plane architecture
 CREATE TABLE IF NOT EXISTS apps (
   id TEXT PRIMARY KEY,
   name TEXT,
-  seed_equation TEXT DEFAULT 'phi-manifold-v1.1',
-  topology TEXT NOT NULL,              -- JSON topology from interview
+  owner_id TEXT,                       -- Clerk user ID for ownership
+  seed_equation TEXT DEFAULT 'phi-manifold-v1.12',
+  
+  -- Two-plane architecture
+  topology TEXT NOT NULL,              -- JSON Topology (navigation plane)
+  workspace_type TEXT DEFAULT 'Document', -- Canvas3D, Grid, Document, Stream
+  entity_schema TEXT,                  -- MindMap, Kanban, Chat, Dashboard
+  views TEXT DEFAULT '[]',             -- JSON array of ViewDefinition
+  actions TEXT DEFAULT '{}',           -- JSON action bindings
+  
+  -- Metadata
+  status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'published', 'archived')),
+  visibility TEXT DEFAULT 'private' CHECK(visibility IN ('private', 'shared', 'public')),
   interview_log TEXT,                  -- JSON tagged choices for pattern DB
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
