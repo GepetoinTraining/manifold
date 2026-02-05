@@ -9,6 +9,7 @@ import {
     isValidTopology,
     type Topology,
     type TopologyNode,
+    type TopologyNodeV1,
 } from "@/lib/manifold";
 import { startScanner, stopScanner, checkCameraAccess } from "@/lib/qr/scanner";
 
@@ -143,20 +144,22 @@ export default function ScanPage() {
         [topology, appState]
     );
 
-    // Inject live data into text nodes
-    const injectData = (tree: TopologyNode): TopologyNode => {
-        if (!tree || !Array.isArray(tree)) return tree;
-        let [prime, text, children, actionKey] = tree;
+    // Inject live data into text nodes (v1 format only)
+    const injectData = (tree: TopologyNode): TopologyNodeV1 => {
+        if (!tree || !Array.isArray(tree)) return tree as unknown as TopologyNodeV1;
+        const [prime, text, children, actionKey] = tree as TopologyNodeV1;
 
-        if (text && typeof text === "string" && appState.data) {
-            text = text.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
+        let processedText = text;
+        if (processedText && typeof processedText === "string" && appState.data) {
+            processedText = processedText.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
                 const val = path.split(".").reduce((o: Record<string, unknown>, k: string) =>
                     o?.[k] as Record<string, unknown>, appState.data as Record<string, unknown>);
                 return val !== undefined ? String(val) : `{{${path}}}`;
             });
         }
 
-        return [prime, text, children?.map((c) => injectData(c)), actionKey];
+        const processedChildren = children?.map((c) => injectData(c as TopologyNode));
+        return [prime, processedText, processedChildren ?? [], actionKey] as TopologyNodeV1;
     };
 
     // Scanner/Paste view

@@ -63,7 +63,9 @@ export function RenderNode({
         typeStyle.padding = typeStyle.padding || "12px 24px";
         typeStyle.fontSize = "14px";
         typeStyle.fontWeight = 500;
-        if (physics.temperature === "warm") {
+        // Warm = high temperature (> 0.5)
+        const temp = physics.temperature;
+        if (typeof temp === "number" && temp > 0.5) {
             typeStyle.background = "#c9a227";
             typeStyle.color = "#0f0e0c";
             typeStyle.border = "none";
@@ -92,7 +94,10 @@ export function RenderNode({
         typeStyle.borderRadius = "4px";
         typeStyle.fontFamily = "'DM Mono', monospace";
         typeStyle.display = "inline-block";
-        const tc = TEMP_COLORS[physics.temperature as string] || TEMP_COLORS.warm;
+        // Get temperature color based on numeric value
+        const tempNum = typeof physics.temperature === "number" ? physics.temperature : 0.5;
+        const tempKey = tempNum > 0.7 ? "hot" : tempNum > 0.5 ? "warm" : tempNum > 0.3 ? "neutral" : "cool";
+        const tc = TEMP_COLORS[tempKey] || TEMP_COLORS.warm;
         typeStyle.color = tc;
         typeStyle.background = tc + "18";
         typeStyle.borderColor = tc + "40";

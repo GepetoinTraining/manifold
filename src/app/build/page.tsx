@@ -1,388 +1,323 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD PAGE — Three-column builder interface
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useUser, SignInButton } from "@clerk/nextjs";
-import {
-    RenderNode,
-    isValidTopology,
-    type Topology,
-    type TopologyNode,
-} from "@/lib/manifold";
 
-interface Message {
-    role: "user" | "assistant";
-    content: string;
-}
+import { ContextTags, type Tag } from "@/components/builder/ContextTags";
+import { Interview, type Message } from "@/components/builder/Interview";
+import { CanvasColumn } from "@/components/builder/Canvas";
+import type { InterviewPhase } from "@/lib/interview/phases";
+import type { Topology } from "@/lib/manifold/topology";
 
 export default function BuildPage() {
     const { user, isLoaded } = useUser();
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
     const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [currentPhase, setCurrentPhase] = useState<InterviewPhase>("identity");
+    const [tags, setTags] = useState<Tag[]>([]);
     const [topology, setTopology] = useState<Topology | null>(null);
-    const [showPreview, setShowPreview] = useState(false);
-    const chatEndRef = useRef<HTMLDivElement>(null);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    // Physics sliders
+    const [temperature, setTemperature] = useState(0.6);
+    const [luminosity, setLuminosity] = useState(0.3);
+    const [friction, setFriction] = useState(0.3);
 
-    const sendMessage = useCallback(async () => {
-        if (!input.trim()) return;
+    // Roles
+    const [roles, setRoles] = useState<string[]>([]);
+    const [currentRole, setCurrentRole] = useState<string | undefined>();
 
-        const userMsg: Message = { role: "user", content: input };
-        const newMessages = [...messages, userMsg];
-        setMessages(newMessages);
-        setInput("");
+    // ─── HANDLERS ──────────────────────────────────────────────────────────────
+
+    const handleSendMessage = useCallback(async (content: string) => {
+        // Add user message
+        const userMessage: Message = { role: "user", content };
+        setMessages((prev) => [...prev, userMessage]);
         setLoading(true);
 
         try {
-            const response = await fetch("/api/encode", {
+            // Send to interview API
+            const response = await fetch("/api/interview", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: newMessages }),
+                body: JSON.stringify({
+                    messages: [...messages, userMessage],
+                    phase: currentPhase,
+                    physics: { temperature, luminosity, friction },
+                }),
             });
 
-            const data = await response.json();
-            const text = data.content || data.error || "Error: No response";
-            setMessages([...newMessages, { role: "assistant", content: text }]);
+            if (!response.ok) throw new Error("Interview API error");
 
-            // Try to extract topology JSON from response
-            const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) || text.match(/(\{[\s\S]*"v"\s*:\s*1[\s\S]*\})/);
-            if (jsonMatch) {
-                try {
-                    const topo = JSON.parse(jsonMatch[1].trim());
-                    if (isValidTopology(topo)) {
-                        setTopology(topo);
-                    }
-                } catch {
-                    // Not valid JSON yet
+            const data = await response.json();
+
+            // Add assistant message
+            if (data.message) {
+                setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+            }
+
+            // Extract tags
+            if (data.tags && Array.isArray(data.tags)) {
+                const newTags: Tag[] = data.tags.map((t: { label: string; value: string }, i: number) => ({
+                    id: `tag-${Date.now()}-${i}`,
+                    label: t.label,
+                    value: t.value,
+                    phase: currentPhase,
+                    editable: true,
+                }));
+                setTags((prev) => [...prev, ...newTags]);
+            }
+
+            // Extract roles
+            if (data.roles && Array.isArray(data.roles)) {
+                setRoles(data.roles);
+                if (!currentRole && data.roles.length > 0) {
+                    setCurrentRole(data.roles[0]);
                 }
             }
-        } catch (e) {
-            setMessages([
-                ...newMessages,
-                { role: "assistant", content: `Error: ${(e as Error).message}` },
-            ]);
-        }
-        setLoading(false);
-    }, [input, messages]);
 
-    // Show loading while Clerk initializes
+            // Update topology if generated
+            if (data.topology) {
+                setTopology(data.topology);
+            }
+
+            // Move to next phase if suggested
+            if (data.nextPhase) {
+                setCurrentPhase(data.nextPhase);
+            }
+        } catch (error) {
+            console.error("Interview error:", error);
+            setMessages((prev) => [
+                ...prev,
+                {
+                    role: "assistant",
+                    content: "I had trouble processing that. Could you try again?",
+                },
+            ]);
+        } finally {
+            setLoading(false);
+        }
+    }, [messages, currentPhase, temperature, luminosity, friction, currentRole]);
+
+    const handleTagUpdate = useCallback((id: string, newValue: string) => {
+        setTags((prev) =>
+            prev.map((tag) => (tag.id === id ? { ...tag, value: newValue } : tag))
+        );
+    }, []);
+
+    const handleTagDelete = useCallback((id: string) => {
+        setTags((prev) => prev.filter((tag) => tag.id !== id));
+    }, []);
+
+    const handleTagAdd = useCallback((label: string, value: string) => {
+        setTags((prev) => [
+            ...prev,
+            {
+                id: `tag-${Date.now()}`,
+                label,
+                value,
+                phase: currentPhase,
+                editable: true,
+            },
+        ]);
+    }, [currentPhase]);
+
+    const handleSelectNode = useCallback((nodeId: string) => {
+        setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId));
+    }, []);
+
+    const handleExportQR = useCallback(async (role?: string) => {
+        if (!topology) return;
+
+        try {
+            const response = await fetch("/api/qr", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topology, role }),
+            });
+
+            if (!response.ok) throw new Error("QR generation failed");
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `manifold-${role || "app"}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("QR export error:", error);
+        }
+    }, [topology]);
+
+    // ─── AUTH CHECK ────────────────────────────────────────────────────────────
+
     if (!isLoaded) {
         return (
-            <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ color: "#8a8070", fontFamily: "'DM Mono', monospace" }}>Loading...</div>
+            <div style={loaderStyles}>
+                <div style={{ color: "#c9a227" }}>◌ Loading...</div>
             </div>
         );
     }
 
-    // Show sign-in prompt if not authenticated
     if (!user) {
         return (
-            <div
-                style={{
-                    minHeight: "100vh",
-                    background: "#0f0e0c",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: "'DM Sans', sans-serif",
-                    color: "#e8e0d0",
-                    padding: "24px",
-                }}
-            >
-                <div style={{ textAlign: "center", maxWidth: "400px" }}>
-                    <div style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.3 }}>⊞</div>
-                    <h1 style={{ fontSize: "24px", fontWeight: 500, marginBottom: "12px" }}>
-                        Encoder Access Required
-                    </h1>
-                    <p style={{ color: "#8a8070", marginBottom: "24px", fontSize: "14px" }}>
-                        Sign in to use the AI-powered topology encoder.
-                    </p>
-                    <SignInButton mode="modal">
-                        <button
-                            style={{
-                                padding: "14px 32px",
-                                borderRadius: "10px",
-                                background: "#c9a227",
-                                color: "#0f0e0c",
-                                border: "none",
-                                fontSize: "16px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                fontFamily: "'DM Sans', sans-serif",
-                            }}
-                        >
-                            Sign In →
-                        </button>
-                    </SignInButton>
-                    <div style={{ marginTop: "16px" }}>
-                        <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "13px" }}>
-                            ← Back to home
-                        </Link>
-                    </div>
-                </div>
+            <div style={authStyles}>
+                <div style={{ fontSize: "48px", marginBottom: "24px", opacity: 0.3 }}>⊞</div>
+                <h1 style={{ fontSize: "24px", marginBottom: "12px" }}>Sign in to Build</h1>
+                <p style={{ color: "#8a8070", marginBottom: "24px" }}>
+                    Create your first app with the Manifold builder.
+                </p>
+                <SignInButton mode="modal">
+                    <button style={signInButtonStyles}>Sign In</button>
+                </SignInButton>
+                <Link href="/" style={backLinkStyles}>
+                    ← Back to home
+                </Link>
             </div>
         );
     }
 
-    // Preview modal
-    if (showPreview && topology) {
-        const page = topology.pages?.[topology.nav[0]];
-        return (
-            <div
-                style={{
-                    position: "fixed",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.9)",
-                    zIndex: 1000,
-                    display: "flex",
-                    flexDirection: "column",
-                }}
-            >
-                <div
-                    style={{
-                        padding: "12px 20px",
-                        borderBottom: "1px solid rgba(200,190,170,0.1)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                    }}
-                >
-                    <div style={{ color: "#c9a227", fontFamily: "'DM Mono', monospace", fontSize: "12px" }}>
-                        PREVIEW
-                    </div>
-                    <button
-                        onClick={() => setShowPreview(false)}
-                        style={{
-                            background: "rgba(200,190,170,0.06)",
-                            border: "1px solid rgba(200,190,170,0.12)",
-                            color: "#8a8070",
-                            padding: "6px 12px",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "11px",
-                            fontFamily: "'DM Mono', monospace",
-                        }}
-                    >
-                        ✕ CLOSE
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
-                    <div
-                        style={{
-                            maxWidth: "560px",
-                            margin: "0 auto",
-                            background: "#0f0e0c",
-                            borderRadius: "12px",
-                            overflow: "hidden",
-                            border: "1px solid rgba(200,190,170,0.12)",
-                        }}
-                    >
-                        {page?.ui.map((node: TopologyNode, i: number) => (
-                            <RenderNode key={i} node={node} index={i} />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // ─── THREE-COLUMN LAYOUT ───────────────────────────────────────────────────
 
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                height: "100vh",
-                background: "#0f0e0c",
-                color: "#e8e0d0",
-                fontFamily: "'DM Sans', sans-serif",
-            }}
-        >
+        <div style={containerStyles}>
             {/* Header */}
-            <div
-                style={{
-                    padding: "14px 20px",
-                    borderBottom: "1px solid rgba(200,190,170,0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                }}
-            >
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "14px" }}>
-                        ←
-                    </Link>
-                    <div>
-                        <div style={{ fontSize: "16px", fontWeight: 600, color: "#c9a227" }}>
-                            ⊞ MANIFOLD ENCODER
-                        </div>
-                        <div
-                            style={{
-                                fontSize: "11px",
-                                color: "#8a8070",
-                                fontFamily: "'DM Mono', monospace",
-                                marginTop: "2px",
-                            }}
-                        >
-                            Describe → Topology → QR
-                        </div>
-                    </div>
+            <header style={headerStyles}>
+                <Link href="/" style={{ textDecoration: "none" }}>
+                    <span style={{ fontSize: "18px", fontWeight: 500, color: "#c9a227" }}>
+                        ⊞ Manifold
+                    </span>
+                </Link>
+                <div style={{ fontSize: "12px", color: "#8a8070" }}>
+                    Building as {user.primaryEmailAddress?.emailAddress}
                 </div>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    {topology && (
-                        <button
-                            onClick={() => setShowPreview(true)}
-                            style={{
-                                background: "rgba(90,154,58,0.12)",
-                                border: "1px solid rgba(90,154,58,0.3)",
-                                color: "#5a9a3a",
-                                padding: "6px 14px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "11px",
-                                fontFamily: "'DM Mono', monospace",
-                            }}
-                        >
-                            ▶ PREVIEW
-                        </button>
-                    )}
-                    <div
-                        style={{
-                            fontSize: "11px",
-                            color: "#8a8070",
-                            fontFamily: "'DM Mono', monospace",
-                        }}
-                    >
-                        {user.emailAddresses[0]?.emailAddress}
-                    </div>
+            </header>
+
+            {/* Three columns */}
+            <div style={columnsStyles}>
+                {/* Left: Context Tags */}
+                <div style={leftColumnStyles}>
+                    <ContextTags
+                        tags={tags}
+                        onTagUpdate={handleTagUpdate}
+                        onTagDelete={handleTagDelete}
+                        onTagAdd={handleTagAdd}
+                    />
                 </div>
-            </div>
 
-            {/* Chat */}
-            <div
-                style={{
-                    flex: 1,
-                    overflow: "auto",
-                    padding: "16px 20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                }}
-            >
-                {messages.length === 0 && (
-                    <div
-                        style={{
-                            color: "#8a8070",
-                            textAlign: "center",
-                            marginTop: "40px",
-                            fontSize: "13px",
-                            lineHeight: 1.8,
-                        }}
-                    >
-                        <div style={{ fontSize: "32px", marginBottom: "16px", opacity: 0.3 }}>⊞</div>
-                        Describe the app you want to build.
-                        <br />
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px" }}>
-                            e.g. &quot;A restaurant menu with 4 items, a cart, and checkout&quot;
-                        </span>
-                    </div>
-                )}
+                {/* Center: Interview */}
+                <div style={centerColumnStyles}>
+                    <Interview
+                        messages={messages}
+                        currentPhase={currentPhase}
+                        selectedNodeId={selectedNodeId}
+                        temperature={temperature}
+                        luminosity={luminosity}
+                        friction={friction}
+                        loading={loading}
+                        onSendMessage={handleSendMessage}
+                        onPhaseChange={setCurrentPhase}
+                        onTemperatureChange={setTemperature}
+                        onLuminosityChange={setLuminosity}
+                        onFrictionChange={setFriction}
+                    />
+                </div>
 
-                {messages.map((msg, i) => (
-                    <div
-                        key={i}
-                        style={{
-                            padding: "12px 16px",
-                            borderRadius: "10px",
-                            background: msg.role === "user" ? "rgba(201,162,39,0.08)" : "rgba(200,190,170,0.04)",
-                            border: `1px solid ${msg.role === "user" ? "rgba(201,162,39,0.2)" : "rgba(200,190,170,0.08)"}`,
-                            alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                            maxWidth: "85%",
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: "10px",
-                                color: "#8a8070",
-                                fontFamily: "'DM Mono', monospace",
-                                marginBottom: "6px",
-                            }}
-                        >
-                            {msg.role === "user" ? "YOU" : "ENCODER"}
-                        </div>
-                        <div style={{ fontSize: "13px", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                            {msg.content}
-                        </div>
-                    </div>
-                ))}
-
-                {loading && (
-                    <div
-                        style={{
-                            padding: "12px 16px",
-                            color: "#c9a227",
-                            fontFamily: "'DM Mono', monospace",
-                            fontSize: "12px",
-                        }}
-                    >
-                        ◌ Building topology...
-                    </div>
-                )}
-                <div ref={chatEndRef} />
-            </div>
-
-            {/* Input */}
-            <div
-                style={{
-                    padding: "12px 16px",
-                    borderTop: "1px solid rgba(200,190,170,0.08)",
-                    display: "flex",
-                    gap: "8px",
-                }}
-            >
-                <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                        }
-                    }}
-                    placeholder="Describe your app..."
-                    style={{
-                        flex: 1,
-                        padding: "12px 16px",
-                        borderRadius: "10px",
-                        background: "rgba(200,190,170,0.06)",
-                        border: "1px solid rgba(200,190,170,0.1)",
-                        color: "#e8e0d0",
-                        fontSize: "14px",
-                        fontFamily: "'DM Sans', sans-serif",
-                        outline: "none",
-                    }}
-                />
-                <button
-                    onClick={sendMessage}
-                    disabled={loading || !input.trim()}
-                    style={{
-                        padding: "12px 20px",
-                        borderRadius: "10px",
-                        background: loading ? "#8a8070" : "#c9a227",
-                        color: "#0f0e0c",
-                        border: "none",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        cursor: loading ? "default" : "pointer",
-                    }}
-                >
-                    →
-                </button>
+                {/* Right: Canvas */}
+                <div style={rightColumnStyles}>
+                    <CanvasColumn
+                        topology={topology}
+                        selectedNodeId={selectedNodeId}
+                        currentRole={currentRole}
+                        roles={roles}
+                        onSelectNode={handleSelectNode}
+                        onRoleChange={setCurrentRole}
+                        onExportQR={handleExportQR}
+                    />
+                </div>
             </div>
         </div>
     );
 }
+
+// ─── STYLES ──────────────────────────────────────────────────────────────────
+
+const containerStyles: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    height: "100vh",
+    background: "#0f0e0c",
+    color: "#e8e0d0",
+};
+
+const headerStyles: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 20px",
+    borderBottom: "1px solid rgba(200,190,170,0.08)",
+};
+
+const columnsStyles: React.CSSProperties = {
+    flex: 1,
+    display: "grid",
+    gridTemplateColumns: "250px 1fr 1fr",
+    overflow: "hidden",
+};
+
+const leftColumnStyles: React.CSSProperties = {
+    overflow: "hidden",
+};
+
+const centerColumnStyles: React.CSSProperties = {
+    overflow: "hidden",
+};
+
+const rightColumnStyles: React.CSSProperties = {
+    overflow: "hidden",
+};
+
+const loaderStyles: React.CSSProperties = {
+    height: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#0f0e0c",
+};
+
+const authStyles: React.CSSProperties = {
+    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#0f0e0c",
+    color: "#e8e0d0",
+    textAlign: "center",
+};
+
+const signInButtonStyles: React.CSSProperties = {
+    padding: "14px 32px",
+    background: "#c9a227",
+    color: "#0f0e0c",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "16px",
+    fontWeight: 600,
+    cursor: "pointer",
+};
+
+const backLinkStyles: React.CSSProperties = {
+    marginTop: "20px",
+    color: "#8a8070",
+    fontSize: "13px",
+    textDecoration: "none",
+};
