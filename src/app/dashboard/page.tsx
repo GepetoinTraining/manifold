@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import type { Topology } from "@/lib/manifold";
 
 interface SavedTopology {
@@ -13,13 +13,15 @@ interface SavedTopology {
 }
 
 export default function DashboardPage() {
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const [topologies, setTopologies] = useState<SavedTopology[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchTopologies();
-    }, []);
+        if (user) {
+            fetchTopologies();
+        }
+    }, [user]);
 
     const fetchTopologies = async () => {
         try {
@@ -68,6 +70,66 @@ export default function DashboardPage() {
         alert("Copied to clipboard");
     };
 
+    // Show loading while Clerk initializes
+    if (!isLoaded) {
+        return (
+            <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ color: "#8a8070", fontFamily: "'DM Mono', monospace" }}>Loading...</div>
+            </div>
+        );
+    }
+
+    // Show sign-in prompt if not authenticated
+    if (!user) {
+        return (
+            <div
+                style={{
+                    minHeight: "100vh",
+                    background: "#0f0e0c",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "'DM Sans', sans-serif",
+                    color: "#e8e0d0",
+                    padding: "24px",
+                }}
+            >
+                <div style={{ textAlign: "center", maxWidth: "400px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.3 }}>⊞</div>
+                    <h1 style={{ fontSize: "24px", fontWeight: 500, marginBottom: "12px" }}>
+                        Dashboard Access Required
+                    </h1>
+                    <p style={{ color: "#8a8070", marginBottom: "24px", fontSize: "14px" }}>
+                        Sign in to view your saved topologies.
+                    </p>
+                    <SignInButton mode="modal">
+                        <button
+                            style={{
+                                padding: "14px 32px",
+                                borderRadius: "10px",
+                                background: "#c9a227",
+                                color: "#0f0e0c",
+                                border: "none",
+                                fontSize: "16px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                fontFamily: "'DM Sans', sans-serif",
+                            }}
+                        >
+                            Sign In →
+                        </button>
+                    </SignInButton>
+                    <div style={{ marginTop: "16px" }}>
+                        <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "13px" }}>
+                            ← Back to home
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             style={{
@@ -88,14 +150,7 @@ export default function DashboardPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    <Link
-                        href="/"
-                        style={{
-                            color: "#8a8070",
-                            textDecoration: "none",
-                            fontSize: "14px",
-                        }}
-                    >
+                    <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "14px" }}>
                         ←
                     </Link>
                     <div>
@@ -129,17 +184,15 @@ export default function DashboardPage() {
                     >
                         + New
                     </Link>
-                    {user && (
-                        <div
-                            style={{
-                                fontSize: "11px",
-                                color: "#8a8070",
-                                fontFamily: "'DM Mono', monospace",
-                            }}
-                        >
-                            {user.emailAddresses[0]?.emailAddress}
-                        </div>
-                    )}
+                    <div
+                        style={{
+                            fontSize: "11px",
+                            color: "#8a8070",
+                            fontFamily: "'DM Mono', monospace",
+                        }}
+                    >
+                        {user.emailAddresses[0]?.emailAddress}
+                    </div>
                 </div>
             </div>
 

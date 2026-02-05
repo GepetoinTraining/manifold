@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import {
     RenderNode,
     isValidTopology,
     type Topology,
     type TopologyNode,
 } from "@/lib/manifold";
-import { SYSTEM_PROMPT } from "@/lib/encoder/system-prompt";
 
 interface Message {
     role: "user" | "assistant";
@@ -17,7 +16,7 @@ interface Message {
 }
 
 export default function BuildPage() {
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -70,6 +69,66 @@ export default function BuildPage() {
         setLoading(false);
     }, [input, messages]);
 
+    // Show loading while Clerk initializes
+    if (!isLoaded) {
+        return (
+            <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ color: "#8a8070", fontFamily: "'DM Mono', monospace" }}>Loading...</div>
+            </div>
+        );
+    }
+
+    // Show sign-in prompt if not authenticated
+    if (!user) {
+        return (
+            <div
+                style={{
+                    minHeight: "100vh",
+                    background: "#0f0e0c",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "'DM Sans', sans-serif",
+                    color: "#e8e0d0",
+                    padding: "24px",
+                }}
+            >
+                <div style={{ textAlign: "center", maxWidth: "400px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.3 }}>⊞</div>
+                    <h1 style={{ fontSize: "24px", fontWeight: 500, marginBottom: "12px" }}>
+                        Encoder Access Required
+                    </h1>
+                    <p style={{ color: "#8a8070", marginBottom: "24px", fontSize: "14px" }}>
+                        Sign in to use the AI-powered topology encoder.
+                    </p>
+                    <SignInButton mode="modal">
+                        <button
+                            style={{
+                                padding: "14px 32px",
+                                borderRadius: "10px",
+                                background: "#c9a227",
+                                color: "#0f0e0c",
+                                border: "none",
+                                fontSize: "16px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                fontFamily: "'DM Sans', sans-serif",
+                            }}
+                        >
+                            Sign In →
+                        </button>
+                    </SignInButton>
+                    <div style={{ marginTop: "16px" }}>
+                        <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "13px" }}>
+                            ← Back to home
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // Preview modal
     if (showPreview && topology) {
         const page = topology.pages?.[topology.nav[0]];
@@ -112,13 +171,7 @@ export default function BuildPage() {
                         ✕ CLOSE
                     </button>
                 </div>
-                <div
-                    style={{
-                        flex: 1,
-                        overflow: "auto",
-                        padding: "20px",
-                    }}
-                >
+                <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
                     <div
                         style={{
                             maxWidth: "560px",
@@ -160,14 +213,7 @@ export default function BuildPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    <Link
-                        href="/"
-                        style={{
-                            color: "#8a8070",
-                            textDecoration: "none",
-                            fontSize: "14px",
-                        }}
-                    >
+                    <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "14px" }}>
                         ←
                     </Link>
                     <div>
@@ -204,17 +250,15 @@ export default function BuildPage() {
                             ▶ PREVIEW
                         </button>
                     )}
-                    {user && (
-                        <div
-                            style={{
-                                fontSize: "11px",
-                                color: "#8a8070",
-                                fontFamily: "'DM Mono', monospace",
-                            }}
-                        >
-                            {user.emailAddresses[0]?.emailAddress}
-                        </div>
-                    )}
+                    <div
+                        style={{
+                            fontSize: "11px",
+                            color: "#8a8070",
+                            fontFamily: "'DM Mono', monospace",
+                        }}
+                    >
+                        {user.emailAddresses[0]?.emailAddress}
+                    </div>
                 </div>
             </div>
 
@@ -254,14 +298,8 @@ export default function BuildPage() {
                         style={{
                             padding: "12px 16px",
                             borderRadius: "10px",
-                            background:
-                                msg.role === "user"
-                                    ? "rgba(201,162,39,0.08)"
-                                    : "rgba(200,190,170,0.04)",
-                            border: `1px solid ${msg.role === "user"
-                                    ? "rgba(201,162,39,0.2)"
-                                    : "rgba(200,190,170,0.08)"
-                                }`,
+                            background: msg.role === "user" ? "rgba(201,162,39,0.08)" : "rgba(200,190,170,0.04)",
+                            border: `1px solid ${msg.role === "user" ? "rgba(201,162,39,0.2)" : "rgba(200,190,170,0.08)"}`,
                             alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
                             maxWidth: "85%",
                         }}
@@ -276,13 +314,7 @@ export default function BuildPage() {
                         >
                             {msg.role === "user" ? "YOU" : "ENCODER"}
                         </div>
-                        <div
-                            style={{
-                                fontSize: "13px",
-                                lineHeight: 1.7,
-                                whiteSpace: "pre-wrap",
-                            }}
-                        >
+                        <div style={{ fontSize: "13px", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
                             {msg.content}
                         </div>
                     </div>
