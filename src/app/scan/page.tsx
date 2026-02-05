@@ -44,7 +44,7 @@ export default function ScanPage() {
 
     const handleScan = (topo: Topology) => {
         setTopology(topo);
-        setCurrentPage(topo.nav[0]);
+        setCurrentPage(topo.nav?.[0] ?? 557);
         setMode("render");
     };
 

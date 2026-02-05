@@ -170,17 +170,32 @@ function isValidNode(node: unknown): boolean {
 
 /** Check if node is v2 format */
 export function isNodeV2(node: TopologyNode): node is TopologyNodeV2 {
+    if (!node) return false;
     return !Array.isArray(node) && typeof node === "object";
 }
 
 /** Convert v1 node to v2 format */
 export function nodeToV2(node: TopologyNodeV1, parentId: string = "root", index: number = 0): TopologyNodeV2 {
     const id = `${parentId}.${index}`;
+
+    // Defensive check for malformed nodes
+    if (!node || !Array.isArray(node)) {
+        return {
+            id,
+            prime: 0,
+            text: null,
+            children: [],
+            action: undefined,
+        };
+    }
+
+    const children = Array.isArray(node[2]) ? node[2] : [];
+
     return {
         id,
-        prime: node[0],
-        text: node[1],
-        children: node[2].map((child, i) => nodeToV2(child, id, i)),
+        prime: node[0] ?? 0,
+        text: node[1] ?? null,
+        children: children.map((child, i) => nodeToV2(child, id, i)),
         action: node[3] ?? undefined,
     };
 }
@@ -188,20 +203,24 @@ export function nodeToV2(node: TopologyNodeV1, parentId: string = "root", index:
 /** Extract all node IDs from a topology */
 export function extractNodeIds(topology: Topology): string[] {
     const ids: string[] = [];
+    if (!topology?.pages) return ids;
 
     const collectFromNode = (node: TopologyNode, parentId: string, index: number) => {
+        if (!node) return;
+
         if (isNodeV2(node)) {
             ids.push(node.id);
-            node.children.forEach((child, i) => collectFromNode(child, node.id, i));
-        } else {
+            node.children?.forEach((child, i) => collectFromNode(child, node.id, i));
+        } else if (Array.isArray(node)) {
             const id = `${parentId}.${index}`;
             ids.push(id);
-            node[2].forEach((child, i) => collectFromNode(child, id, i));
+            const children = Array.isArray(node[2]) ? node[2] : [];
+            children.forEach((child, i) => collectFromNode(child, id, i));
         }
     };
 
     Object.entries(topology.pages).forEach(([pageKey, page]) => {
-        page.ui.forEach((node, i) => collectFromNode(node, `page.${pageKey}`, i));
+        page?.ui?.forEach((node, i) => collectFromNode(node, `page.${pageKey}`, i));
     });
 
     return ids;
@@ -210,19 +229,23 @@ export function extractNodeIds(topology: Topology): string[] {
 /** Extract all unique primes from a topology */
 export function extractPrimes(topology: Topology): Set<number> {
     const primes = new Set<number>();
+    if (!topology?.pages) return primes;
 
     const collectFromNode = (node: TopologyNode) => {
+        if (!node) return;
+
         if (isNodeV2(node)) {
             primes.add(node.prime);
-            node.children.forEach(collectFromNode);
-        } else {
-            primes.add(node[0]);
-            node[2].forEach(collectFromNode);
+            node.children?.forEach(collectFromNode);
+        } else if (Array.isArray(node)) {
+            if (typeof node[0] === 'number') primes.add(node[0]);
+            const children = Array.isArray(node[2]) ? node[2] : [];
+            children.forEach(collectFromNode);
         }
     };
 
     Object.values(topology.pages).forEach((page) => {
-        page.ui.forEach(collectFromNode);
+        page?.ui?.forEach(collectFromNode);
     });
 
     return primes;
