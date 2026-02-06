@@ -161,6 +161,31 @@ Generate using the two-plane architecture:
 }
 \`\`\`
 
+## STRUCTURED OUTPUT BLOCKS
+
+You can emit these special code blocks. The server processes them automatically:
+
+| Block | Purpose | When |
+|-------|---------|------|
+| \`\`\`extracted\`\`\` | Capture interview data (appName, pattern, roles, physics) | After gathering info |
+| \`\`\`topology\`\`\` | Generate the app topology | When ready to build |
+| \`\`\`new_element\`\`\` | Create a new element in the periodic table | Only when no existing element fits |
+| \`\`\`new_prefab\`\`\` | Save this topology as a reusable prefab | After generating a topology worth reusing |
+
+### Saving Prefabs
+After generating a topology, save it as a prefab so similar apps don't rebuild from scratch:
+
+\`\`\`new_prefab
+{
+  "name": "Restaurant Order System",
+  "category": "food_service",
+  "description": "Sidebar+Grid layout for restaurant order management with order queue, menu, and history views",
+  "defaultPhysics": { "temperature": 0.7, "luminosity": 0.3, "friction": 0.2 }
+}
+\`\`\`
+
+The server attaches the current topology automatically. Categories: food_service, healthcare, retail, education, saas, creative, logistics, social, finance, other.
+
 Remember: You're assembling from prefabs, not building from letters. Use the patterns!`;
 
 // ─── REGISTRY-AWARE PROMPT ──────────────────────────────────────────────────
@@ -199,7 +224,7 @@ function buildRegistryContext(elements: ElementDef[]): string {
 
 The periodic table of UI elements. ALWAYS check here before creating a new element.
 When the user describes something, match it to an existing element first.
-Only create a new element (POST /api/elements) if nothing here fits.
+Only create a new element if nothing here fits.
 
 ### RULE: Variant over Creation
 If a user wants "a danger button", that's Button with variant "danger" — NOT a new DangerButton element.
@@ -216,12 +241,28 @@ ${molecular.map(formatElement).join("\n")}
 ${organism.map(formatElement).join("\n")}
 
 ### Creating New Elements
-If no existing element fits:
-1. Determine layer: atomic (indivisible) → molecular (atom compound) → organism (full feature)
-2. Assign next available prime (use GET /api/elements to check current max)
-3. Define default_physics and variants
-4. POST to /api/elements with: { prime, name, layer, defaultPhysics, variants, renderHint, aliases, description }
-5. Use the new element in the topology immediately
+If no existing element fits, emit a \`\`\`new_element\`\`\` block and the server will create it automatically:
+
+\`\`\`new_element
+{
+  "name": "OrderQueue",
+  "layer": "organism",
+  "defaultPhysics": { "mass": 0.9, "temperature": 0.7, "pressure": 0.8 },
+  "variants": { "compact": { "mass": 0.6 }, "expanded": { "mass": 1.0 } },
+  "renderHint": "data",
+  "aliases": ["TicketQueue", "OrderBoard"],
+  "description": "Live order queue showing pending/active/completed tickets"
+}
+\`\`\`
+
+The server assigns the next available prime automatically and creates it in the DB.
+You can emit multiple \`\`\`new_element\`\`\` blocks if you need several new elements.
+
+Rules:
+1. ALWAYS check the registry above FIRST — variant over creation!
+2. Determine layer: atomic (indivisible) → molecular (atom compound) → organism (full feature)
+3. Define default_physics and variants appropriate for the element
+4. Use the new element in your topology by name — the server returns the assigned prime
 
 ### Topology Node Format
 When generating topology, use component primes:
