@@ -57,7 +57,7 @@ export function createSeed(
 export async function storeSeed(record: SeedRecord): Promise<void> {
     const db = getTurso();
     await db.execute({
-        sql: `INSERT INTO auth_seeds (id, seed_number, prime_factors, zeta, enrolled_at, geo_lat, geo_lon, display_name, email, active)
+        sql: `INSERT OR REPLACE INTO auth_seeds (id, seed_number, prime_factors, zeta, enrolled_at, geo_lat, geo_lon, display_name, email, active)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
             record.id,

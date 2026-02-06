@@ -29,11 +29,6 @@ export async function POST(request: NextRequest) {
         const message =
             error instanceof Error ? error.message : "Enrollment request failed";
 
-        // User already enrolled is a 409
-        if (message === "User already enrolled") {
-            return NextResponse.json({ error: message }, { status: 409 });
-        }
-
         console.error("Enroll request error:", error);
         return NextResponse.json({ error: message }, { status: 500 });
     }

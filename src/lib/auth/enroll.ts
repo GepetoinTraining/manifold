@@ -20,15 +20,6 @@ export async function requestEnrollment(
 
     const db = getTurso();
 
-    // Check if user already exists
-    const existing = await db.execute({
-        sql: "SELECT id FROM auth_seeds WHERE id = ? AND active = 1",
-        args: [id],
-    });
-    if (existing.rows.length > 0) {
-        throw new Error("User already enrolled");
-    }
-
     // Store pending enrollment
     await db.execute({
         sql: `INSERT INTO auth_pending (token, user_id, datetime_iso, geo_lat, geo_lon, requested_at)
