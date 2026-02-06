@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 import Script from "next/script";
 
@@ -28,35 +28,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: "#c9a227",
-          colorBackground: "#0f0e0c",
-          colorInputBackground: "#1a1814",
-          colorText: "#e8e0d0",
-        },
-      }}
-    >
-      <html lang="en">
-        <head>
-          <link rel="manifest" href="/manifest.json" />
-          <meta name="theme-color" content="#c9a227" />
-          <Script
-            src="https://pay.google.com/gp/p/js/pay.js"
-            strategy="lazyOnload"
-          />
-        </head>
-        <body
-          className={`${dmSans.variable} ${dmMono.variable} antialiased`}
-          style={{
-            background: "#0f0e0c",
-            fontFamily: "var(--font-dm-sans), sans-serif",
-          }}
-        >
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#c9a227" />
+        <Script
+          src="https://pay.google.com/gp/p/js/pay.js"
+          strategy="lazyOnload"
+        />
+      </head>
+      <body
+        className={`${dmSans.variable} ${dmMono.variable} antialiased`}
+        style={{
+          background: "#0f0e0c",
+          fontFamily: "var(--font-dm-sans), sans-serif",
+        }}
+      >
+        <AuthProvider>{children}</AuthProvider>
+      </body>
+    </html>
   );
 }

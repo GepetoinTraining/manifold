@@ -109,3 +109,54 @@ CREATE INDEX IF NOT EXISTS idx_choices_phase ON choices(phase);
 CREATE INDEX IF NOT EXISTS idx_elements_name ON elements(name);
 CREATE INDEX IF NOT EXISTS idx_elements_layer ON elements(layer);
 CREATE INDEX IF NOT EXISTS idx_prefabs_category ON prefabs(category);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TOPOLOGY AUTH — Math-based authentication (φ + ζ = π)
+-- Spacetime-anchored enrollment → matrix exponentiation challenge-response
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- User identity seeds (permanent enrollment records)
+CREATE TABLE IF NOT EXISTS auth_seeds (
+  id TEXT PRIMARY KEY,                    -- user identifier (email or handle)
+  seed_number TEXT NOT NULL,              -- BigInt as string (from spacetime moment)
+  prime_factors TEXT NOT NULL,            -- JSON array of bigint strings
+  zeta REAL NOT NULL,                     -- computed ζ value for this user
+  enrolled_at INTEGER NOT NULL,           -- Unix timestamp ms
+  geo_lat REAL NOT NULL,
+  geo_lon REAL NOT NULL,
+  display_name TEXT,
+  email TEXT,
+  active INTEGER NOT NULL DEFAULT 1,      -- 0 = revoked
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Pending enrollment requests (temporary, 1hr TTL)
+CREATE TABLE IF NOT EXISTS auth_pending (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  datetime_iso TEXT NOT NULL,
+  geo_lat REAL NOT NULL,
+  geo_lon REAL NOT NULL,
+  requested_at INTEGER NOT NULL
+);
+
+-- Active challenges (temporary, 30s TTL)
+CREATE TABLE IF NOT EXISTS auth_challenges (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  exponent INTEGER NOT NULL,              -- n in [10, 999]
+  expected_trajectory TEXT NOT NULL,       -- fingerprint string
+  created_at INTEGER NOT NULL             -- Unix timestamp ms
+);
+
+-- Sessions (httpOnly cookie → DB lookup)
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires ON auth_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_auth_seeds_email ON auth_seeds(email);

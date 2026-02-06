@@ -6,7 +6,8 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { useUser, SignInButton } from "@clerk/nextjs";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { SignInButton } from "@/components/auth/SignInButton";
 
 import { ContextTags, type Tag } from "@/components/builder/ContextTags";
 import { Interview, type Message } from "@/components/builder/Interview";
@@ -15,7 +16,7 @@ import type { InterviewPhase } from "@/lib/interview/phases";
 import type { Topology } from "@/lib/manifold/topology";
 
 export default function BuildPage() {
-    const { user, isLoaded } = useUser();
+    const { user, isLoaded } = useAuth();
 
     // ─── STATE ─────────────────────────────────────────────────────────────────
     const [messages, setMessages] = useState<Message[]>([]);
@@ -229,9 +230,7 @@ export default function BuildPage() {
                 <p style={{ color: "#8a8070", marginBottom: "24px" }}>
                     Create your first app with the Manifold builder.
                 </p>
-                <SignInButton mode="modal">
-                    <button style={signInButtonStyles}>Sign In</button>
-                </SignInButton>
+                <SignInButton mode="modal" />
                 <Link href="/" style={backLinkStyles}>
                     ← Back to home
                 </Link>
@@ -270,7 +269,7 @@ export default function BuildPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <span style={{ fontSize: "12px", color: "#8a8070" }}>
-                        {user.primaryEmailAddress?.emailAddress}
+                        {user.email}
                     </span>
                     <button
                         onClick={handleSaveApp}

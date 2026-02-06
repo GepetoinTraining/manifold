@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
-    "@clerk/nextjs": "^6.37.3",
     "@libsql/client": "^0.17.0",
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",

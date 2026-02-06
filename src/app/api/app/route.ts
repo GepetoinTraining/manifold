@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSession } from "@/lib/auth/session";
 import { getTurso } from "@/lib/db/turso";
 import { isValidTopology } from "@/lib/manifold/topology";
 
 // POST /api/app - Create app from interview
 export async function POST(request: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const session = await getSession(request);
+        if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const userId = session.userId;
 
         const { name, topology, interviewLog } = await request.json();
 

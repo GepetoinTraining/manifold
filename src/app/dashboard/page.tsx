@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useUser, SignInButton } from "@clerk/nextjs";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { SignInButton } from "@/components/auth/SignInButton";
 import type { Topology } from "@/lib/manifold";
 
 interface SavedTopology {
@@ -13,7 +14,7 @@ interface SavedTopology {
 }
 
 export default function DashboardPage() {
-    const { user, isLoaded } = useUser();
+    const { user, isLoaded } = useAuth();
     const [topologies, setTopologies] = useState<SavedTopology[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -70,7 +71,7 @@ export default function DashboardPage() {
         alert("Copied to clipboard");
     };
 
-    // Show loading while Clerk initializes
+    // Show loading while auth initializes
     if (!isLoaded) {
         return (
             <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -103,23 +104,7 @@ export default function DashboardPage() {
                     <p style={{ color: "#8a8070", marginBottom: "24px", fontSize: "14px" }}>
                         Sign in to view your saved topologies.
                     </p>
-                    <SignInButton mode="modal">
-                        <button
-                            style={{
-                                padding: "14px 32px",
-                                borderRadius: "10px",
-                                background: "#c9a227",
-                                color: "#0f0e0c",
-                                border: "none",
-                                fontSize: "16px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                fontFamily: "'DM Sans', sans-serif",
-                            }}
-                        >
-                            Sign In →
-                        </button>
-                    </SignInButton>
+                    <SignInButton mode="modal" />
                     <div style={{ marginTop: "16px" }}>
                         <Link href="/" style={{ color: "#8a8070", textDecoration: "none", fontSize: "13px" }}>
                             ← Back to home
@@ -191,7 +176,7 @@ export default function DashboardPage() {
                             fontFamily: "'DM Mono', monospace",
                         }}
                     >
-                        {user.emailAddresses[0]?.emailAddress}
+                        {user.email}
                     </div>
                 </div>
             </div>

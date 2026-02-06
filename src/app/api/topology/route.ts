@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSession } from "@/lib/auth/session";
 import { isValidTopology, type Topology } from "@/lib/manifold/topology";
 
 // In-memory storage for v1 (replace with Vercel KV in production)
@@ -12,11 +12,12 @@ const topologies = new Map<string, {
     updatedAt: string;
 }>();
 
-export async function GET() {
-    const { userId } = await auth();
-    if (!userId) {
+export async function GET(request: NextRequest) {
+    const session = await getSession(request);
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.userId;
 
     const userTopologies = Array.from(topologies.values())
         .filter((t) => t.userId === userId)
@@ -26,10 +27,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getSession(request);
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.userId;
 
     try {
         const { name, topology } = await request.json();
@@ -60,10 +62,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getSession(request);
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.userId;
 
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {

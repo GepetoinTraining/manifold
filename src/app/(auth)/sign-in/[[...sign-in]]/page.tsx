@@ -1,6 +1,20 @@
-import { SignIn } from "@clerk/nextjs";
+"use client";
+
+import { useAuth } from "@/components/auth/AuthProvider";
+import { SignInButton } from "@/components/auth/SignInButton";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function SignInPage() {
+    const { isAuthenticated, isLoaded } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoaded && isAuthenticated) {
+            router.push("/build");
+        }
+    }, [isLoaded, isAuthenticated, router]);
+
     return (
         <div
             style={{
@@ -12,15 +26,7 @@ export default function SignInPage() {
                 padding: "24px",
             }}
         >
-            <SignIn
-                appearance={{
-                    elements: {
-                        rootBox: {
-                            margin: "0 auto",
-                        },
-                    },
-                }}
-            />
+            <SignInButton mode="inline" />
         </div>
     );
 }
