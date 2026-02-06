@@ -59,7 +59,15 @@ export function EnrollmentFlow({ onCertificateReceived, onCancel }: EnrollmentFl
                 displayName.trim() || undefined
             );
 
-            setEnrollToken(result.token);
+            // First-time user: auto-approved, certificate returned directly
+            if (result.certificate) {
+                setStep("approved");
+                onCertificateReceived(result.certificate);
+                return;
+            }
+
+            // Re-enrollment: needs approval step
+            setEnrollToken(result.token!);
             setStep("pending");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Enrollment failed");

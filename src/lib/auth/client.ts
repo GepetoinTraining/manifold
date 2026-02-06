@@ -82,13 +82,13 @@ function computeTrajectory(zeta: number, n: number): string {
 
 // ─── Auth API Calls ──────────────────────────────────────────────────────────
 
-/** Request enrollment (Step 1: user requests, awaits admin approval) */
+/** Request enrollment — auto-approved for first-time, token for re-enrollment */
 export async function requestEnrollment(
     id: string,
     geo: { lat: number; lon: number },
     email?: string,
     displayName?: string
-): Promise<{ token: string }> {
+): Promise<{ token?: string; certificate?: ClientCertificate }> {
     const res = await fetch("/api/auth/enroll/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

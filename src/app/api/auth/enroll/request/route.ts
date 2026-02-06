@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requestEnrollment } from "@/lib/auth/enroll";
+import { requestEnrollment, approveEnrollment } from "@/lib/auth/enroll";
+import { getSeed } from "@/lib/auth/seed";
 
 // POST /api/auth/enroll/request
 // Body: { id, geo: { lat, lon }, email?, displayName? }
-// Returns: { token }
+// Returns: { certificate } for first-time users (auto-approved)
+//          { token } for re-enrollment (requires approval)
 export async function POST(request: NextRequest) {
     try {
         const { id, geo, email, displayName } = await request.json();
@@ -24,6 +26,16 @@ export async function POST(request: NextRequest) {
 
         const token = await requestEnrollment(id, geo, email, displayName);
 
+        // First-time user: auto-approve, no second step needed
+        const existing = await getSeed(id);
+        if (!existing) {
+            const certificate = await approveEnrollment(token);
+            if (certificate) {
+                return NextResponse.json({ certificate });
+            }
+        }
+
+        // Re-enrollment: requires approval step
         return NextResponse.json({ token });
     } catch (error) {
         const message =
