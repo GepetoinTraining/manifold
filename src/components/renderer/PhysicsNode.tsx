@@ -40,14 +40,20 @@ export function PhysicsNode({
     onSelect,
     children,
 }: PhysicsNodeProps) {
+    // Guard: bail out if node is null/undefined
+    if (!node) {
+        return <div data-node-id={`empty.${depth}.${index}`} />;
+    }
+
     // Extract node data
     const nodeId = isNodeV2(node) ? node.id : `node.${depth}.${index}`;
-    const prime = isNodeV2(node) ? node.prime : node[0];
-    const text = isNodeV2(node) ? node.text : node[1];
+    const prime = isNodeV2(node) ? node.prime : (Array.isArray(node) ? node[0] : 0);
+    const text = isNodeV2(node) ? node.text : (Array.isArray(node) ? node[1] : null);
     const overridePhysics = isNodeV2(node) ? node.physics : undefined;
 
     // Decode prime to get component type + raw physics
-    const decoded = decode(prime);
+    // Guard: decode needs a valid number
+    const decoded = decode(typeof prime === "number" && prime > 0 ? prime : 1);
 
     // Extract variant from node physics (if provided)
     const variant = (overridePhysics as Record<string, unknown>)?.variant as
