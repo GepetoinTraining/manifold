@@ -65,6 +65,40 @@ CREATE TABLE IF NOT EXISTS choices (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PERIODIC TABLE — Component type definitions with physics defaults
+-- The prime IS the identity. No UUID needed.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS elements (
+  prime INTEGER PRIMARY KEY,           -- assigned prime (389=Button, 397=Card, etc.)
+  name TEXT NOT NULL UNIQUE,           -- 'Button', 'Card', 'OrderQueue', etc.
+  layer TEXT NOT NULL CHECK(layer IN ('atomic', 'molecular', 'organism')),
+  default_physics TEXT NOT NULL,       -- JSON: {mass: 0.8, density: "solid", temperature: "cold"}
+  variants TEXT DEFAULT '{}',          -- JSON: {primary: {mass:1.0, temp:"warm"}, ghost: {mass:0.3}}
+  render_hint TEXT DEFAULT 'container' CHECK(render_hint IN (
+    'container', 'text', 'action', 'input', 'data', 'layout', 'temporal', 'media'
+  )),
+  aliases TEXT DEFAULT '[]',           -- JSON: ["Btn", "CTA", "Action"]
+  description TEXT,                    -- what this element does (for Claude context)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PREFABS — Reusable topology templates
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS prefabs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,                  -- 'restaurant', 'clinic', 'salon'
+  category TEXT NOT NULL,              -- 'food_service', 'healthcare', 'retail', etc.
+  topology TEXT NOT NULL,              -- JSON: full Topology object
+  default_physics TEXT DEFAULT '{}',   -- JSON: global physics for this prefab type
+  description TEXT,                    -- for Claude context when matching
+  usage_count INTEGER DEFAULT 0,      -- track popularity
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_roles_app_id ON roles(app_id);
 CREATE INDEX IF NOT EXISTS idx_seeds_app_id ON seeds(app_id);
@@ -72,3 +106,6 @@ CREATE INDEX IF NOT EXISTS idx_deltas_instance_id ON deltas(instance_id);
 CREATE INDEX IF NOT EXISTS idx_deltas_created_at ON deltas(created_at);
 CREATE INDEX IF NOT EXISTS idx_choices_session_id ON choices(session_id);
 CREATE INDEX IF NOT EXISTS idx_choices_phase ON choices(phase);
+CREATE INDEX IF NOT EXISTS idx_elements_name ON elements(name);
+CREATE INDEX IF NOT EXISTS idx_elements_layer ON elements(layer);
+CREATE INDEX IF NOT EXISTS idx_prefabs_category ON prefabs(category);

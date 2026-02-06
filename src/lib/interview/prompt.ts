@@ -163,6 +163,79 @@ Generate using the two-plane architecture:
 
 Remember: You're assembling from prefabs, not building from letters. Use the patterns!`;
 
-export function getInterviewPrompt(): string {
-  return INTERVIEW_SYSTEM_PROMPT;
+// ─── REGISTRY-AWARE PROMPT ──────────────────────────────────────────────────
+// Dynamically includes the element registry so Claude knows what exists
+
+import type { ElementDef } from "@/lib/manifold/elements";
+
+/**
+ * Build the full interview prompt with current element registry.
+ * This tells Claude exactly which components exist, their physics defaults,
+ * and their variants — so it MATCHES existing before creating new.
+ */
+export function getInterviewPrompt(elements?: ElementDef[]): string {
+    if (!elements || elements.length === 0) {
+        return INTERVIEW_SYSTEM_PROMPT;
+    }
+
+    const registryContext = buildRegistryContext(elements);
+    return INTERVIEW_SYSTEM_PROMPT + "\n\n" + registryContext;
+}
+
+function buildRegistryContext(elements: ElementDef[]): string {
+    const atomic = elements.filter((e) => e.layer === "atomic");
+    const molecular = elements.filter((e) => e.layer === "molecular");
+    const organism = elements.filter((e) => e.layer === "organism");
+
+    const formatElement = (el: ElementDef) => {
+        const variants = Object.keys(el.variants);
+        const variantStr = variants.length > 0
+            ? ` | variants: ${variants.join(", ")}`
+            : "";
+        return `  - **${el.name}** (prime: ${el.prime}, hint: ${el.renderHint})${variantStr}`;
+    };
+
+    return `## ELEMENT REGISTRY — Available Components
+
+The periodic table of UI elements. ALWAYS check here before creating a new element.
+When the user describes something, match it to an existing element first.
+Only create a new element (POST /api/elements) if nothing here fits.
+
+### RULE: Variant over Creation
+If a user wants "a danger button", that's Button with variant "danger" — NOT a new DangerButton element.
+If they want "a glass card", that's Card with variant "glass" — NOT a new GlassCard.
+New elements are for genuinely new UI concepts (e.g., "order ticket queue" → new OrderQueue organism).
+
+### Atomic (${atomic.length} elements)
+${atomic.map(formatElement).join("\n")}
+
+### Molecular (${molecular.length} elements)
+${molecular.map(formatElement).join("\n")}
+
+### Organism (${organism.length} elements)
+${organism.map(formatElement).join("\n")}
+
+### Creating New Elements
+If no existing element fits:
+1. Determine layer: atomic (indivisible) → molecular (atom compound) → organism (full feature)
+2. Assign next available prime (use GET /api/elements to check current max)
+3. Define default_physics and variants
+4. POST to /api/elements with: { prime, name, layer, defaultPhysics, variants, renderHint, aliases, description }
+5. Use the new element in the topology immediately
+
+### Topology Node Format
+When generating topology, use component primes:
+\`\`\`json
+{
+  "id": "menu-card-1",
+  "prime": 397,
+  "text": "Margherita Pizza",
+  "children": [
+    { "id": "price-1", "prime": 383, "text": "R$32", "children": [] },
+    { "id": "add-btn-1", "prime": 389, "text": "Add to Order", "children": [], "action": "add_to_cart" }
+  ],
+  "physics": { "temperature": 0.6 }
+}
+\`\`\`
+Here: 397=Card, 383=Text, 389=Button. The Φ tensor handles the rest.`;
 }

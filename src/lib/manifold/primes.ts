@@ -31,17 +31,28 @@ export const P = {
         367: "store.local", 373: "store.session",
     } as const,
 
-    // ── COMPONENT TYPES ── (primes 379+)
+    // ── COMPONENT TYPES ── (primes 379+, extended 607+)
     component: {
+        // Atomic (base elements)
         379: "Container", 383: "Text", 389: "Button",
-        397: "Card", 401: "Input", 409: "Badge",
-        419: "Image", 421: "Navbar", 431: "Sidebar",
+        401: "Input", 409: "Badge", 419: "Image",
+        461: "Avatar", 463: "Link", 467: "Pill",
+        479: "Spacer", 487: "Divider", 491: "Icon",
+        509: "Checkbox", 521: "Radio",
+        607: "Switch", 613: "Slider", 617: "Spinner",
+
+        // Molecular (compound elements)
+        397: "Card", 421: "Navbar", 431: "Sidebar",
         433: "Modal", 439: "Table", 443: "List",
-        449: "Toast", 457: "Progress", 461: "Avatar",
-        463: "Link", 467: "Pill", 479: "Spacer",
-        487: "Divider", 491: "Icon", 499: "Form",
-        503: "Select", 509: "Checkbox", 521: "Radio",
-        523: "Tabs", 541: "Accordion", 547: "Carousel",
+        449: "Toast", 457: "Progress", 499: "Form",
+        503: "Select", 523: "Tabs", 541: "Accordion",
+        547: "Carousel",
+        619: "Chart", 631: "Stat", 641: "Trend",
+        643: "Node", 647: "Clock", 653: "Day",
+
+        // Organism (complex compositions)
+        659: "Week", 661: "Month", 673: "Year",
+        677: "Calendar", 683: "Kanban",
     } as const,
 
     // ── NAVIGATION ORDER ── (primes 557+)

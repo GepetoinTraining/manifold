@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getInterviewPrompt } from "@/lib/interview/prompt";
+import { getTurso } from "@/lib/db/turso";
+import { populateRegistry, getAllElements } from "@/lib/manifold/elements";
 
 const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -15,6 +17,21 @@ export async function POST(request: NextRequest) {
                 { error: "Anthropic API key not configured" },
                 { status: 500 }
             );
+        }
+
+        // Load element registry for the interview prompt
+        let elements = getAllElements();
+        if (elements.length === 0) {
+            try {
+                const db = getTurso();
+                const result = await db.execute("SELECT * FROM elements ORDER BY prime");
+                if (result.rows.length > 0) {
+                    populateRegistry(result.rows as Record<string, unknown>[]);
+                    elements = getAllElements();
+                }
+            } catch {
+                // Registry not seeded yet — proceed without it
+            }
         }
 
         // Build message history for Claude
@@ -36,11 +53,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Call Claude API
+        // Call Claude API with registry-aware prompt
         const response = await anthropic.messages.create({
             model: "claude-sonnet-4-20250514",
             max_tokens: 2048,
-            system: getInterviewPrompt(),
+            system: getInterviewPrompt(elements),
             messages: claudeMessages,
         });
 
