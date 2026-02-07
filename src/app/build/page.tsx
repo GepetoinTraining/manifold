@@ -1,10 +1,12 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BUILD PAGE — Three-column builder interface
+// BUILD PAGE — Three-column builder interface (responsive)
+// Desktop: sidebar | interview | canvas
+// Mobile: interview <-> canvas tab switch, sidebar hidden
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SignInButton } from "@/components/auth/SignInButton";
@@ -15,8 +17,23 @@ import { CanvasColumn } from "@/components/builder/Canvas";
 import type { InterviewPhase } from "@/lib/interview/phases";
 import type { Topology } from "@/lib/manifold/topology";
 
+type MobileTab = "chat" | "canvas";
+
+function useIsMobile(breakpoint = 768) {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < breakpoint);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, [breakpoint]);
+    return isMobile;
+}
+
 export default function BuildPage() {
     const { user, isLoaded } = useAuth();
+    const isMobile = useIsMobile();
+    const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
 
     // ─── STATE ─────────────────────────────────────────────────────────────────
     const [messages, setMessages] = useState<Message[]>([]);
@@ -238,44 +255,48 @@ export default function BuildPage() {
         );
     }
 
-    // ─── THREE-COLUMN LAYOUT ───────────────────────────────────────────────────
+    // ─── RESPONSIVE LAYOUT ─────────────────────────────────────────────────────
 
     return (
         <div style={containerStyles}>
             {/* Header */}
             <header style={headerStyles}>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
                     <Link href="/" style={{ textDecoration: "none" }}>
-                        <span style={{ fontSize: "18px", fontWeight: 500, color: "#c9a227" }}>
-                            ⊞ Manifold
+                        <span style={{ fontSize: isMobile ? "16px" : "18px", fontWeight: 500, color: "#c9a227" }}>
+                            ⊞ {!isMobile && "Manifold"}
                         </span>
                     </Link>
-                    <input
-                        type="text"
-                        value={appName}
-                        onChange={(e) => setAppName(e.target.value)}
-                        placeholder="App Name"
-                        style={{
-                            background: "rgba(200,190,170,0.05)",
-                            border: "1px solid rgba(200,190,170,0.1)",
-                            borderRadius: "6px",
-                            padding: "6px 12px",
-                            color: "#e8e0d0",
-                            fontSize: "14px",
-                            width: "180px",
-                            fontFamily: "inherit",
-                        }}
-                    />
+                    {!isMobile && (
+                        <input
+                            type="text"
+                            value={appName}
+                            onChange={(e) => setAppName(e.target.value)}
+                            placeholder="App Name"
+                            style={{
+                                background: "rgba(200,190,170,0.05)",
+                                border: "1px solid rgba(200,190,170,0.1)",
+                                borderRadius: "6px",
+                                padding: "6px 12px",
+                                color: "#e8e0d0",
+                                fontSize: "14px",
+                                width: "180px",
+                                fontFamily: "inherit",
+                            }}
+                        />
+                    )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "12px", color: "#8a8070" }}>
-                        {user.email}
-                    </span>
+                    {!isMobile && (
+                        <span style={{ fontSize: "12px", color: "#8a8070" }}>
+                            {user.email}
+                        </span>
+                    )}
                     <button
                         onClick={handleSaveApp}
                         disabled={!topology || saving}
                         style={{
-                            padding: "8px 20px",
+                            padding: isMobile ? "8px 14px" : "8px 20px",
                             background: saved ? "#22c55e" : saving ? "#666" : "#c9a227",
                             color: saved ? "#fff" : "#0f0e0c",
                             border: "none",
@@ -288,53 +309,77 @@ export default function BuildPage() {
                             transition: "all 0.2s",
                         }}
                     >
-                        {saved ? "✓ Saved" : saving ? "Saving..." : "Save App"}
+                        {saved ? "✓ Saved" : saving ? "Saving..." : "Save"}
                     </button>
                 </div>
             </header>
 
-            {/* Three columns */}
-            <div style={columnsStyles}>
-                {/* Left: Context Tags */}
-                <div style={leftColumnStyles}>
-                    <ContextTags
-                        tags={tags}
-                        onTagUpdate={handleTagUpdate}
-                        onTagDelete={handleTagDelete}
-                        onTagAdd={handleTagAdd}
-                    />
+            {/* Mobile tab bar */}
+            {isMobile && (
+                <div style={mobileTabBarStyles}>
+                    <button
+                        onClick={() => setMobileTab("chat")}
+                        style={mobileTabStyles(mobileTab === "chat")}
+                    >
+                        Chat
+                    </button>
+                    <button
+                        onClick={() => setMobileTab("canvas")}
+                        style={mobileTabStyles(mobileTab === "canvas")}
+                    >
+                        Canvas{topology ? " ●" : ""}
+                    </button>
                 </div>
+            )}
 
-                {/* Center: Interview */}
-                <div style={centerColumnStyles}>
-                    <Interview
-                        messages={messages}
-                        currentPhase={currentPhase}
-                        selectedNodeId={selectedNodeId}
-                        temperature={temperature}
-                        luminosity={luminosity}
-                        friction={friction}
-                        loading={loading}
-                        onSendMessage={handleSendMessage}
-                        onPhaseChange={setCurrentPhase}
-                        onTemperatureChange={setTemperature}
-                        onLuminosityChange={setLuminosity}
-                        onFrictionChange={setFriction}
-                    />
-                </div>
+            {/* Layout: 3-col desktop / single-panel mobile */}
+            <div style={isMobile ? mobileContentStyles : columnsStyles}>
+                {/* Left: Context Tags — desktop only */}
+                {!isMobile && (
+                    <div style={leftColumnStyles}>
+                        <ContextTags
+                            tags={tags}
+                            onTagUpdate={handleTagUpdate}
+                            onTagDelete={handleTagDelete}
+                            onTagAdd={handleTagAdd}
+                        />
+                    </div>
+                )}
 
-                {/* Right: Canvas */}
-                <div style={rightColumnStyles}>
-                    <CanvasColumn
-                        topology={topology}
-                        selectedNodeId={selectedNodeId}
-                        currentRole={currentRole}
-                        roles={roles}
-                        onSelectNode={handleSelectNode}
-                        onRoleChange={setCurrentRole}
-                        onExportQR={handleExportQR}
-                    />
-                </div>
+                {/* Center: Interview — always on desktop, tab on mobile */}
+                {(!isMobile || mobileTab === "chat") && (
+                    <div style={isMobile ? mobileColumnStyles : centerColumnStyles}>
+                        <Interview
+                            messages={messages}
+                            currentPhase={currentPhase}
+                            selectedNodeId={selectedNodeId}
+                            temperature={temperature}
+                            luminosity={luminosity}
+                            friction={friction}
+                            loading={loading}
+                            onSendMessage={handleSendMessage}
+                            onPhaseChange={setCurrentPhase}
+                            onTemperatureChange={setTemperature}
+                            onLuminosityChange={setLuminosity}
+                            onFrictionChange={setFriction}
+                        />
+                    </div>
+                )}
+
+                {/* Right: Canvas — always on desktop, tab on mobile */}
+                {(!isMobile || mobileTab === "canvas") && (
+                    <div style={isMobile ? mobileColumnStyles : rightColumnStyles}>
+                        <CanvasColumn
+                            topology={topology}
+                            selectedNodeId={selectedNodeId}
+                            currentRole={currentRole}
+                            roles={roles}
+                            onSelectNode={handleSelectNode}
+                            onRoleChange={setCurrentRole}
+                            onExportQR={handleExportQR}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -374,6 +419,39 @@ const centerColumnStyles: React.CSSProperties = {
 };
 
 const rightColumnStyles: React.CSSProperties = {
+    overflow: "hidden",
+};
+
+const mobileTabBarStyles: React.CSSProperties = {
+    display: "flex",
+    borderBottom: "1px solid rgba(200,190,170,0.08)",
+};
+
+const mobileTabStyles = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: "10px",
+    background: active ? "rgba(201,162,39,0.08)" : "transparent",
+    borderBottom: active ? "2px solid #c9a227" : "2px solid transparent",
+    color: active ? "#c9a227" : "#8a8070",
+    border: "none",
+    borderBottomStyle: "solid",
+    borderBottomWidth: "2px",
+    borderBottomColor: active ? "#c9a227" : "transparent",
+    fontSize: "13px",
+    fontWeight: 600,
+    fontFamily: "'DM Mono', monospace",
+    cursor: "pointer",
+});
+
+const mobileContentStyles: React.CSSProperties = {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+};
+
+const mobileColumnStyles: React.CSSProperties = {
+    flex: 1,
     overflow: "hidden",
 };
 
